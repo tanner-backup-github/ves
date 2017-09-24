@@ -4,9 +4,6 @@
 
 #define ARRLEN(a) (sizeof((a)) / sizeof((*(a))))
 
-extern void put32(uint32_t, uint32_t);
-extern uint32_t get32(uint32_t);
-
 #define MAILBOX_BASE      0x2000B880
 #define MAILBOX_READ      0x00
 #define MAILBOX_STATUS    0x18
@@ -14,23 +11,12 @@ extern uint32_t get32(uint32_t);
 #define MAILBOX_EMPTY     0b1000000000000000000000000000000
 #define MAILBOX_FULL      0b10000000000000000000000000000000
 
-void write_mailbox(uint8_t channel, uint32_t data) {
-	while ((get32(MAILBOX_BASE + MAILBOX_STATUS) & MAILBOX_FULL) != 0);
-	put32(MAILBOX_BASE + MAILBOX_WRITE, data + channel);
-}
+#define GPU_BASE 0x40040000
+#define GPIO_LEV0 0x20200034
+#define GPIO_4 0x10
 
-uint32_t read_mailbox(uint8_t channel) {
-	uint32_t r = 0;
-	while (true) {
-		while ((get32(MAILBOX_BASE + MAILBOX_STATUS) & MAILBOX_EMPTY) != 0);
-
-		uint32_t r = get32(MAILBOX_BASE + MAILBOX_READ);
-		if ((r & 0xF) == channel) {
-			break;
-		}
-	}
-	return r;
-}
+#define SCREEN_WIDTH 640
+#define SCREEN_HEIGHT 480
 
 uint32_t rom[] = { 0x6a, 0x02, 0x6b, 0x0c, 0x6c, 0x3f, 
 		   0x6d, 0x0c, 0xa2, 0xea, 0xda, 0xb6, 0xdc, 0xd6, 0x6e, 
@@ -59,15 +45,33 @@ uint32_t rom[] = { 0x6a, 0x02, 0x6b, 0x0c, 0x6c, 0x3f,
 		   0xf2, 0xfe, 0x33, 0xf2, 0x65, 0xf1, 0x29, 0x64, 0x14, 
 		   0x65, 0x00, 0xd4, 0x55, 0x74, 0x15, 0xf2, 0x29, 0xd4, 
 		   0x55, 0x00, 0xee, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 
-		   0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 
+		   0x80, 0x00, 0x00, 0x00, 0x00, 0x00,
 };
 
-#define GPU_BASE 0x40040000
-#define GPIO_LEV0 0x20200034
-#define GPIO_4 0x10
+extern void put32(uint32_t, uint32_t);
+extern uint32_t get32(uint32_t);
 
-#define SCREEN_WIDTH 640
-#define SCREEN_HEIGHT 480
+void write_mailbox(uint8_t channel, uint32_t data) {
+	while ((get32(MAILBOX_BASE + MAILBOX_STATUS) & MAILBOX_FULL) != 0);
+	put32(MAILBOX_BASE + MAILBOX_WRITE, data + channel);
+}
+
+uint32_t read_mailbox(uint8_t channel) {
+	uint32_t r = 0;
+	while (true) {
+		while ((get32(MAILBOX_BASE + MAILBOX_STATUS) & MAILBOX_EMPTY) != 0);
+
+		uint32_t r = get32(MAILBOX_BASE + MAILBOX_READ);
+		if ((r & 0xF) == channel) {
+			break;
+		}
+	}
+	return r;
+}
+
+static inline bool in_range(int32_t i, int32_t start, int32_t end) {
+	return i >= start && i <= end;
+}	
 
 int32_t ves_main(void) {
 
@@ -89,16 +93,8 @@ int32_t ves_main(void) {
  
 	uint32_t *fb = (uint32_t *) get32(GPU_BASE + 0x20);
 
-	uint8_t  gp_registers[15];
-	uint8_t  flags_register;
-	uint8_t  timer_registers[2];
-
+	uint8_t gp_registers[16] = { 0 };
 	uint16_t pc = 0;
-
-	uint16_t stack[16];
-	uint8_t  sp = 0;
-
-	uint8_t memory[0xFFF];
 	
 	while (true) {		
 		uint16_t instruction = rom[pc] << 8 | rom[pc + 1];
@@ -107,8 +103,6 @@ int32_t ves_main(void) {
 			for (size_t i = 0; i < properties[0] * properties[1]; ++i) {
 				fb[i] = 0;
 			}
-		} else if (instruction == 0xee) {
-			// ret;
 		}
 		
 		pc += 2;

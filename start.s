@@ -1,6 +1,7 @@
 .global start
 start:
 	mov sp, #0x8000
+	
 	bl ves_main
 	
 .global put32

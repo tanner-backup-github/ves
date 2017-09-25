@@ -18,11 +18,14 @@ const uint32_t GPIO_LEV1 = 0x20200038;
 const uint32_t SCREEN_WIDTH  = 1024;
 const uint32_t SCREEN_HEIGHT = 768;
 
-#define OFF 0
-#define ON  1
-
 #define CHIP8_WIDTH  64
 #define CHIP8_HEIGHT 32
+
+#define RATIO_X (SCREEN_WIDTH / CHIP8_WIDTH)
+#define RATIO_Y (SCREEN_HEIGHT / CHIP8_HEIGHT)
+
+#define OFF 0
+#define ON  1
 
 uint32_t tetris_rom[] = { 0xa2, 0xb4, 0x23, 0xe6, 0x22, 0xb6, 0x70, 0x01, 0xd0, 0x11, 
 			  0x30, 0x25, 0x12, 0x06, 0x71, 0xff, 0xd0, 0x11, 0x60, 0x1a, 
@@ -142,12 +145,6 @@ int32_t ves_main(void) {
 		memory[0x200 + i] = tetris_rom[i];
 	}
 
-	gfx[0] = ON;
-	gfx[1] = ON;
-	gfx[2] = ON;
-	gfx[65] = ON;
-	gfx[66] = ON;
-
 	while (true) {
 		uint16_t instruction = tetris_rom[pc] << 8 | tetris_rom[pc + 1];
 		
@@ -165,15 +162,19 @@ int32_t ves_main(void) {
 		/* } */
 		/* } */
 
-		if (pc % 16) {
-			for (size_t i = 0; i < CHIP8_WIDTH; ++i) {
-				for (size_t j = 0; j < CHIP8_HEIGHT; ++j) {
-					uint32_t c = 0;
-					if (gfx[i + j * CHIP8_WIDTH] == ON) {
-						c = 0xFFFFFF;
-					}
-					draw_box(fb, i * 16, j * 24, 16, 24, c);
+		for (size_t i = 0; i < CHIP8_WIDTH; ++i) {
+			for (size_t j = 0; j < CHIP8_HEIGHT; ++j) {
+				gfx[i + j * CHIP8_WIDTH] = !!!gfx[i + j * CHIP8_WIDTH];
+			}
+		}
+		
+		for (size_t i = 0; i < CHIP8_WIDTH; ++i) {
+			for (size_t j = 0; j < CHIP8_HEIGHT; ++j) {
+				uint32_t c = 0;
+				if (gfx[i + j * CHIP8_WIDTH] == ON) {
+					c = 0xFFFFFF;
 				}
+				draw_box(fb, i * RATIO_X, j * RATIO_Y, RATIO_X, RATIO_Y, c);
 			}
 		}
 		
